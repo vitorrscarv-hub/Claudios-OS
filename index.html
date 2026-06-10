@@ -1068,20 +1068,48 @@ input[list]{background-image:none}
     </div>
     <div id="goal-form-body">
       <div class="input-row">
-        <div style="flex:2"><label>Nome da Meta</label><input id="goal-name" class="form-input" type="text" placeholder="Ex: Carro, Casa, Viagem..."></div>
+        <div style="flex:2"><label>Nome da Meta</label><input id="goal-name" class="form-input" type="text" placeholder="Ex: Carro, Novo cargo, Violão..."></div>
         <div style="flex:1"><label>Categoria</label>
-          <select id="goal-cat" class="form-input">
-            <option value="financeira">Financeira</option>
-            <option value="patrimonial">Patrimonial</option>
-            <option value="profissional">Profissional</option>
-            <option value="pessoal">Pessoal</option>
+          <select id="goal-cat" class="form-input" onchange="onGoalCatChange()">
+            <option value="financeira">&#128176; Financeira</option>
+            <option value="patrimonial">&#127968; Patrimonial</option>
+            <option value="profissional">&#128188; Profissional</option>
+            <option value="pessoal">&#11088; Pessoal</option>
           </select>
         </div>
       </div>
-      <div class="input-row">
-        <div><label>Valor Total R$</label><input id="goal-target" class="form-input" type="number" placeholder="10000" step="0.01" min="0"></div>
-        <div><label>Já Tenho R$</label><input id="goal-current" class="form-input" type="number" placeholder="0" step="0.01" min="0"></div>
+
+      <!-- Campos financeiros (financeira/patrimonial) -->
+      <div id="goal-fields-financial">
+        <div class="input-row">
+          <div><label>Valor Total R$</label><input id="goal-target" class="form-input" type="number" placeholder="10000" step="0.01" min="0"></div>
+          <div><label>Já Tenho R$</label><input id="goal-current" class="form-input" type="number" placeholder="0" step="0.01" min="0"></div>
+        </div>
       </div>
+
+      <!-- Campos não financeiros (profissional/pessoal) -->
+      <div id="goal-fields-nonfinancial" style="display:none">
+        <div class="form-group">
+          <label>Descrição da meta</label>
+          <input id="goal-desc" class="form-input" type="text" placeholder="Ex: Chegar a gerente sênior, tocar 3 músicas...">
+        </div>
+        <div class="form-group">
+          <label>Progresso atual (%)</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input id="goal-pct-input" class="form-input" type="range" min="0" max="100" value="0" oninput="document.getElementById('goal-pct-val').textContent=this.value+'%'" style="flex:1;padding:8px 0">
+            <span id="goal-pct-val" style="font-size:14px;font-weight:900;color:#2d3494;min-width:38px">0%</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Etapas (opcional)</label>
+          <div id="goal-etapas-list" style="margin-bottom:8px"></div>
+          <div style="display:flex;gap:6px">
+            <input id="goal-etapa-input" class="form-input" type="text" placeholder="Ex: Passar na entrevista..." style="flex:1">
+            <button onclick="addGoalEtapa()" style="background:var(--sky);color:#fff;border:none;border-radius:var(--r);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">+ Etapa</button>
+          </div>
+        </div>
+      </div>
+
       <div class="input-row">
         <div><label>Prazo</label>
           <select id="goal-prazo" class="form-input">
@@ -2086,22 +2114,95 @@ function doExport(){
 // ═══════════════════════════════════════
 // GOALS
 // ═══════════════════════════════════════
+// ── Goal form helpers ──
+var _goalEtapas = [];
+
+function isFinancialGoalCat(cat){
+  return cat==='financeira'||cat==='patrimonial';
+}
+
+function onGoalCatChange(){
+  var cat=document.getElementById('goal-cat').value;
+  var fin=document.getElementById('goal-fields-financial');
+  var nfin=document.getElementById('goal-fields-nonfinancial');
+  if(isFinancialGoalCat(cat)){
+    if(fin) fin.style.display='block';
+    if(nfin) nfin.style.display='none';
+  } else {
+    if(fin) fin.style.display='none';
+    if(nfin) nfin.style.display='block';
+  }
+}
+
+function addGoalEtapa(){
+  var inp=document.getElementById('goal-etapa-input');
+  var txt=(inp&&inp.value.trim())||'';
+  if(!txt){toast('Digite a etapa');return;}
+  _goalEtapas.push({label:txt,done:false});
+  inp.value='';
+  renderGoalEtapasList();
+}
+
+function removeGoalEtapa(idx){
+  _goalEtapas.splice(idx,1);
+  renderGoalEtapasList();
+}
+
+function renderGoalEtapasList(){
+  var el=document.getElementById('goal-etapas-list');
+  if(!el) return;
+  if(!_goalEtapas.length){el.innerHTML='';return;}
+  el.innerHTML=_goalEtapas.map(function(e,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
+      +'<span style="font-size:11px;color:var(--sky);font-weight:700">'+( i+1)+'.</span>'
+      +'<span style="flex:1;font-size:12px;color:var(--ink2)">'+e.label+'</span>'
+      +'<span style="cursor:pointer;color:var(--ink3);font-size:16px" data-idx="'+i+'" onclick="removeGoalEtapa(this.dataset.idx)">&times;</span>'
+      +'</div>';
+  }).join('');
+}
+
 function addGoal(){
   var name=document.getElementById('goal-name').value.trim();
-  var target=parseFloat(document.getElementById('goal-target').value)||0;
-  var current=parseFloat(document.getElementById('goal-current').value)||0;
-  var deadline=document.getElementById('goal-deadline').value;
   var cat=document.getElementById('goal-cat').value;
   var prazo=document.getElementById('goal-prazo').value;
+  var deadline=document.getElementById('goal-deadline').value;
   if(!name){toast('Informe o nome da meta');return;}
-  if(target<=0){toast('Informe o valor da meta');return;}
-  var marcos=(GOAL_MARCOS_DEF[cat]||GOAL_MARCOS_DEF.pessoal).map(function(lbl){return{label:lbl,done:false};});
-  state.goals.push({id:uid(),name:name,target:target,current:Math.min(current,target),deadline:deadline,cat:cat,prazo:prazo,marcos:marcos,createdAt:new Date().toISOString()});
+
+  var goalObj={id:uid(),name:name,cat:cat,prazo:prazo,deadline:deadline,createdAt:new Date().toISOString()};
+
+  if(isFinancialGoalCat(cat)){
+    var target=parseFloat(document.getElementById('goal-target').value)||0;
+    var current=parseFloat(document.getElementById('goal-current').value)||0;
+    if(target<=0){toast('Informe o valor da meta');return;}
+    goalObj.type='financial';
+    goalObj.target=target;
+    goalObj.current=Math.min(current,target);
+    goalObj.marcos=(GOAL_MARCOS_DEF[cat]||GOAL_MARCOS_DEF.patrimonial).map(function(lbl){return{label:lbl,done:false};});
+  } else {
+    var pct=parseInt((document.getElementById('goal-pct-input')||{value:0}).value)||0;
+    var desc=(document.getElementById('goal-desc')||{value:''}).value.trim();
+    goalObj.type='nonfinancial';
+    goalObj.pct=pct;
+    goalObj.desc=desc;
+    goalObj.etapas=_goalEtapas.length ? _goalEtapas.slice() : (GOAL_MARCOS_DEF[cat]||GOAL_MARCOS_DEF.pessoal).map(function(lbl){return{label:lbl,done:false};});
+    goalObj.target=100; // virtual target for % progress
+    goalObj.current=pct;
+  }
+
+  state.goals.push(goalObj);
   save(); renderGoals(); updateHome();
+
+  // Reset form
   document.getElementById('goal-name').value='';
-  document.getElementById('goal-target').value='';
-  document.getElementById('goal-current').value='';
+  var tf=document.getElementById('goal-target'); if(tf) tf.value='';
+  var cf=document.getElementById('goal-current'); if(cf) cf.value='';
+  var df=document.getElementById('goal-desc'); if(df) df.value='';
+  var pf=document.getElementById('goal-pct-input'); if(pf) pf.value=0;
+  var pv=document.getElementById('goal-pct-val'); if(pv) pv.textContent='0%';
+  var ei=document.getElementById('goal-etapa-input'); if(ei) ei.value='';
   document.getElementById('goal-deadline').value='';
+  _goalEtapas=[];
+  renderGoalEtapasList();
   toast('\u2713 Meta "'+name+'" criada!');
 }
 
@@ -2154,6 +2255,28 @@ function toggleMarco(goalId,idx){
   if(g&&g.marcos) g.marcos[parseInt(idx)].done=!g.marcos[parseInt(idx)].done;
   save(); renderGoals();
 }
+function toggleEtapa(goalId,idx){
+  var g=state.goals.find(function(x){return x.id===goalId;});
+  if(!g) return;
+  var arr=g.etapas||g.marcos;
+  if(arr) arr[parseInt(idx)].done=!arr[parseInt(idx)].done;
+  // Auto-update pct based on completed etapas
+  if(arr&&arr.length){
+    var doneCnt=arr.filter(function(e){return e.done;}).length;
+    g.pct=Math.round((doneCnt/arr.length)*100);
+    g.current=g.pct;
+  }
+  save(); renderGoals();
+}
+
+function updateGoalPct(goalId,val){
+  var g=state.goals.find(function(x){return x.id===goalId;});
+  if(!g) return;
+  g.pct=parseInt(val)||0;
+  g.current=g.pct;
+  save(); renderGoals(); updateHome();
+}
+
 
 function updateGoalInsight(goals){
   var textEl=document.getElementById('goal-insight-text');
@@ -2204,28 +2327,55 @@ function renderGoals(){
     return;
   }
   var rows=filtered.map(function(g){
-    var pct=Math.min(100,(g.current/g.target)*100);
-    var remaining=g.target-g.current;
+    var isFinancial=g.type==='financial'||(g.type===undefined&&(g.cat==='financeira'||g.cat==='patrimonial'));
+    var pct=isFinancial?Math.min(100,(g.current/g.target)*100):Math.min(100,(g.pct||g.current||0));
     var isDone=pct>=100;
     var ci=GOAL_CATS[g.cat]||GOAL_CATS.pessoal;
     var pi=PRAZO_CATS[g.prazo]||PRAZO_CATS.medio;
     var isLate=g.deadline&&new Date(g.deadline)<today&&!isDone;
     var cardCls='goal-card-new'+(isDone?' done':isLate?' late':'');
-    // marcos
-    var marcosHtml='';
-    if(g.marcos&&g.marcos.length){
-      var dots=g.marcos.map(function(marco,i){
-        var doneClass=marco.done?' done':'';
-        var strikeStyle=marco.done?'text-decoration:line-through;color:var(--ink3)':'';
-        var checkMark=marco.done?'\u2713':'';
+    // Steps
+    var stepsData=isFinancial?(g.marcos||[]):(g.etapas||g.marcos||[]);
+    var stepsHtml='';
+    if(stepsData.length){
+      var fnName=isFinancial?'toggleMarco':'toggleEtapa';
+      var stepRows=stepsData.map(function(s,i){
+        var dc=s.done?' done':'';
+        var ss=s.done?'text-decoration:line-through;color:var(--ink3)':'';
         return '<div class="goal-marco-row">'
-          +'<div class="goal-marco-dot'+doneClass+'" data-gid="'+g.id+'" data-idx="'+i+'" onclick="toggleMarco(this.dataset.gid,this.dataset.idx)">'+checkMark+'</div>'
-          +'<span style="'+strikeStyle+'">'+marco.label+'</span>'
+          +'<div class="goal-marco-dot'+dc+'" data-gid="'+g.id+'" data-idx="'+i+'" onclick="'+fnName+'(this.dataset.gid,this.dataset.idx)">'+(s.done?'\u2713':'')+'</div>'
+          +'<span style="'+ss+'">'+s.label+'</span>'
           +'</div>';
       }).join('');
-      marcosHtml='<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
-        +'<div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Marcos</div>'
-        +dots+'</div>';
+      stepsHtml='<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">'
+        +'<div style="font-size:9px;font-weight:800;color:var(--ink3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">'+(isFinancial?'Marcos':'Etapas')+'</div>'
+        +stepRows+'</div>';
+    }
+    // Progress info
+    var progressInfo='';
+    if(isFinancial){
+      progressInfo='<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+        +'<span style="font-size:12px;font-weight:700;color:var(--ink2)">R$ '+fm(g.current)+' <span style="color:var(--ink3);font-weight:500">/ R$ '+fm(g.target)+'</span></span>'
+        +'<span style="font-size:13px;font-weight:900;color:#2d3494">'+pct.toFixed(1)+'%</span>'
+        +'</div>';
+    } else {
+      progressInfo=(g.desc?'<div style="font-size:12px;color:var(--ink2);margin-bottom:8px;font-style:italic">'+g.desc+'</div>':'')
+        +'<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+        +'<span style="font-size:12px;font-weight:700;color:var(--ink2)">Progresso</span>'
+        +'<span style="font-size:13px;font-weight:900;color:#2d3494">'+pct.toFixed(0)+'%</span>'
+        +'</div>';
+    }
+    // Action
+    var actionBtn='';
+    if(!isDone){
+      if(isFinancial){
+        actionBtn='<button class="btn btn-ghost" style="margin-top:10px;padding:8px;font-size:11px" data-gid="'+g.id+'" onclick="addToGoalPrompt(this.dataset.gid)">+ Adicionar valor</button>';
+      } else {
+        actionBtn='<div style="margin-top:10px;display:flex;align-items:center;gap:8px">'
+          +'<input type="range" min="0" max="100" value="'+Math.round(pct)+'" style="flex:1;cursor:pointer" data-gid="'+g.id+'" oninput="updateGoalPct(this.dataset.gid,this.value)">'
+          +'<span style="font-size:12px;font-weight:800;color:#2d3494;min-width:36px">'+Math.round(pct)+'%</span>'
+          +'</div>';
+      }
     }
     return '<div class="'+cardCls+'">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
@@ -2236,18 +2386,15 @@ function renderGoals(){
         +'</div>'
         +'<span style="cursor:pointer;color:var(--ink3);font-size:20px;padding:0 4px" data-gid="'+g.id+'" onclick="delGoal(this.dataset.gid)">&times;</span>'
       +'</div>'
-      +'<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
-        +'<span style="font-size:12px;font-weight:700;color:var(--ink2)">R$ '+fm(g.current)+' <span style="color:var(--ink3);font-weight:500">/ R$ '+fm(g.target)+'</span></span>'
-        +'<span style="font-size:13px;font-weight:900;color:#2d3494">'+pct.toFixed(1)+'%</span>'
-      +'</div>'
+      +progressInfo
       +'<div class="goal-prog-bar"><div class="goal-prog-fill'+(isDone?' done':'')+'" style="width:'+pct+'%"></div></div>'
       +'<div style="display:flex;align-items:center;justify-content:space-between">'
-        +(isDone?'<span style="font-size:12px;font-weight:800;color:var(--green)">\u2705 Conclu\u00edda!</span>':'<span style="font-size:11px;font-weight:600;color:var(--ink3)">Faltam R$ '+fm(remaining)+'</span>')
+        +(isDone?'<span style="font-size:12px;font-weight:800;color:var(--green)">\u2705 Conclu\u00edda!</span>':'<span style="font-size:11px;font-weight:600;color:var(--ink3)">'+(isFinancial?'Faltam R$ '+fm(g.target-g.current):Math.round(pct)+'% conclu\u00eddo')+'</span>')
         +'<span class="goal-prazo-tag" style="background:'+pi.b+';color:'+pi.c+'">'+pi.l+'</span>'
       +'</div>'
       +(g.deadline?'<div style="font-size:10px;color:'+(isLate?'var(--red)':'var(--ink3)')+';margin-top:4px;font-weight:600">'+(isLate?'\u26A0 Atrasada \u2014 ':'Prazo: ')+fmtDate(g.deadline)+'</div>':'')
-      +(!isDone?'<button class="btn btn-ghost" style="margin-top:10px;padding:8px;font-size:11px" data-gid="'+g.id+'" onclick="addToGoalPrompt(this.dataset.gid)">+ Adicionar valor</button>':'')
-      +marcosHtml
+      +actionBtn
+      +stepsHtml
       +'</div>';
   }).join('');
   el.innerHTML=rows;
