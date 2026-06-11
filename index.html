@@ -1349,6 +1349,10 @@ input[list]{background-image:none}
     <div style="text-align:center;margin-top:12px">
       <span style="font-size:13px;font-weight:700;color:#a8d4ff;cursor:pointer;padding:8px;display:inline-block" onclick="recoverPassword()">Esqueci minha senha</span>
     </div>
+    <div id="google-loading" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:14px;background:rgba(255,255,255,.08);border-radius:14px;margin-bottom:8px">
+      <div style="width:24px;height:24px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite"></div>
+      <span style="font-size:12px;font-weight:700;color:rgba(255,255,255,.75)">Conectando com Google...</span>
+    </div>
     <button class="login-btn outline" onclick="loginGoogle()">
       <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right:8px;vertical-align:middle"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
       Continuar com Google
@@ -4459,16 +4463,20 @@ function backToLoginFromVerify(){
 }
 
 function initAuth(){
-  // Set session persistence — keep logged in across browser sessions
+  // STEP 1: Set persistence synchronously before anything else
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
 
-  // Handle Google redirect result first (iOS Safari uses redirect not popup)
+  // STEP 2: Process Google redirect result BEFORE setting up the observer
+  // This is critical on iOS — the redirect result must be consumed first
+  // so that onAuthStateChanged fires with the correct user
   auth.getRedirectResult().then(function(result){
     if(result && result.user){
+      // Redirect login succeeded — log it
       logAuditEvent('login', {email:result.user.email, method:'google'});
+      // onAuthStateChanged will fire automatically after this
     }
   }).catch(function(e){
-    if(e.code && e.code !== 'auth/no-current-user'){
+    if(e.code && e.code !== 'auth/no-current-user' && e.code !== 'auth/null-user'){
       var errEl = document.getElementById('login-error');
       if(errEl) errEl.textContent = _firebaseAuthError(e.code);
       console.warn('Redirect result error:', e.code, e.message);
@@ -4492,9 +4500,10 @@ function initAuth(){
       };
       // CRITICAL: wipe any in-memory data from a previous user before loading
       state = _emptyState();
-      // Show app immediately — don't wait for Firestore
+      // Hide login and any loading screens
       hideLoginScreen();
       var ev=document.getElementById('email-verify-screen'); if(ev) ev.style.display='none';
+      var ls=document.getElementById('google-loading'); if(ls) ls.style.display='none';
       updateUserUI();
       load(); // load THIS user's local cache (if any)
       try{ navTo('home'); }catch(e){ try{ updateHome(); }catch(e2){} }
@@ -4639,20 +4648,28 @@ function loginEmail(){
 
 function loginGoogle(){
   var provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({prompt: 'select_account'});
-  // Use redirect for iOS Safari (popup blocked), popup for desktop
-  var isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  if(isIOS){
-    auth.signInWithRedirect(provider);
-  } else {
-    auth.signInWithPopup(provider).catch(function(e){
-      if(e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user'){
-        auth.signInWithRedirect(provider);
-      } else {
-        toast(_firebaseAuthError(e.code));
-      }
-    });
-  }
+  provider.setCustomParameters({prompt:'select_account'});
+  // Always use redirect on mobile (popup unreliable in Safari/WebView)
+  var isMobile = /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
+  // Set persistence first, then redirect
+  // Show loading indicator
+  var gl=document.getElementById('google-loading');
+  if(gl) gl.style.display='flex';
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function(){
+    if(isMobile){
+      return auth.signInWithRedirect(provider);
+    } else {
+      return auth.signInWithPopup(provider).catch(function(e){
+        if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'){
+          return auth.signInWithRedirect(provider);
+        }
+        throw e;
+      });
+    }
+  }).catch(function(e){
+    var errEl=document.getElementById('login-error');
+    if(errEl) errEl.textContent=_firebaseAuthError(e.code);
+  });
 }
 
 function loginApple(){
