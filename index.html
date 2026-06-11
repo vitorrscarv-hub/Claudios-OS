@@ -1175,14 +1175,35 @@ input[list]{background-image:none}
 
 <!-- NOTAS -->
 <div id="screen-notes" class="screen">
-  <div class="card">
-    <div class="card-title blue">Nova Nota</div>
-    <div class="form-group"><input id="note-title-input" type="text" placeholder="Título..."></div>
-    <div class="form-group"><textarea id="note-body-input" rows="4" placeholder="Escreva aqui..."></textarea></div>
-    <button class="btn" onclick="addNote()">Salvar Nota</button>
+
+  <!-- BARRA DE PASTAS -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div id="notes-breadcrumb" style="font-size:13px;font-weight:800;color:var(--ink)">Pastas</div>
+    <button onclick="openNewFolderPrompt()" id="new-folder-btn" style="background:var(--bg);border:1.5px solid var(--border);border-radius:20px;padding:6px 12px;font-size:11px;font-weight:700;color:var(--ink2);cursor:pointer">+ Pasta</button>
   </div>
-  <div class="section-title">Minhas Notas</div>
-  <div id="notes-list"><div class="empty"><div class="empty-icon">📝</div>Nenhuma nota</div></div>
+
+  <!-- GRADE DE PASTAS -->
+  <div id="notes-folders-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px"></div>
+
+  <!-- VISAO DENTRO DA PASTA -->
+  <div id="notes-folder-view" style="display:none">
+    <button onclick="closeFolderView()" style="background:none;border:none;color:var(--sky);font-size:13px;font-weight:700;cursor:pointer;padding:0;margin-bottom:12px;display:flex;align-items:center;gap:4px">&#8249; Voltar para Pastas</button>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="card-title blue" style="margin-bottom:0">Nova Nota</div>
+        <button onclick="toggleNoteForm()" id="note-form-toggle" style="background:none;border:none;font-size:20px;color:var(--ink3);cursor:pointer">+</button>
+      </div>
+      <div id="note-form-body" style="display:none">
+        <div class="form-group"><input id="note-title-input" type="text" placeholder="Titulo..."></div>
+        <div class="form-group"><textarea id="note-body-input" rows="4" placeholder="Escreva aqui..."></textarea></div>
+        <button class="btn" onclick="addNote()">Salvar Nota</button>
+      </div>
+    </div>
+
+    <div id="notes-list"><div class="empty"><div class="empty-icon">&#128221;</div>Nenhuma nota nesta pasta</div></div>
+  </div>
+
 </div>
 
 <!-- TAREFAS -->
@@ -3224,16 +3245,136 @@ function addNote(){
   const title=document.getElementById('note-title-input').value.trim();
   const body=document.getElementById('note-body-input').value.trim();
   if(!title&&!body){ toast('Escreva algo'); return; }
-  state.notes.unshift({id:uid(),title:title||'Sem título',body,date:new Date().toISOString()});
+  _ensureFolders();
+  var folderId=_currentFolder||'default';
+  state.notes.unshift({id:uid(),title:title||'Sem t\u00edtulo',body:body,date:new Date().toISOString(),folderId:folderId});
   save(); renderNotes();
-  document.getElementById('note-title-input').value=''; document.getElementById('note-body-input').value='';
-  toast('✓ Nota salva!');
+  document.getElementById('note-title-input').value='';
+  document.getElementById('note-body-input').value='';
+  var fb=document.getElementById('note-form-body');
+  var ft=document.getElementById('note-form-toggle');
+  if(fb) fb.style.display='none';
+  if(ft) ft.textContent='+';
+  toast('\u2713 Nota salva!');
+}
+
+// ── NOTES with FOLDERS ──
+var _currentFolder = null;
+var FOLDER_COLORS = ['#2d7dd2','#18a058','#e07d2d','#8b5cf6','#e0422d','#0ea5a5','#d4af37','#64748b'];
+
+function _ensureFolders(){
+  if(!state.noteFolders){
+    state.noteFolders = [{id:'default',name:'Geral',color:'#2d7dd2'}];
+  }
+  // Migrate old notes without folder
+  (state.notes||[]).forEach(function(n){
+    if(!n.folderId) n.folderId='default';
+  });
+}
+
+function openNewFolderPrompt(){
+  var name=prompt('Nome da nova pasta:');
+  if(!name||!name.trim()) return;
+  _ensureFolders();
+  var color=FOLDER_COLORS[state.noteFolders.length % FOLDER_COLORS.length];
+  state.noteFolders.push({id:uid(),name:name.trim(),color:color});
+  save(); renderNotes();
+  toast('\u2713 Pasta "'+name.trim()+'" criada!');
+}
+
+function delFolder(folderId){
+  if(folderId==='default'){ toast('A pasta Geral n\u00e3o pode ser exclu\u00edda'); return; }
+  var notesInFolder=(state.notes||[]).filter(function(n){return n.folderId===folderId;}).length;
+  var msg=notesInFolder>0
+    ? 'Esta pasta tem '+notesInFolder+' nota(s). Elas ser\u00e3o movidas para Geral. Excluir?'
+    : 'Excluir esta pasta?';
+  if(!confirm(msg)) return;
+  (state.notes||[]).forEach(function(n){ if(n.folderId===folderId) n.folderId='default'; });
+  state.noteFolders=state.noteFolders.filter(function(f){return f.id!==folderId;});
+  if(_currentFolder===folderId) _currentFolder=null;
+  save(); renderNotes();
+  toast('Pasta exclu\u00edda');
+}
+
+function openFolder(folderId){
+  _currentFolder=folderId;
+  renderNotes();
+}
+
+function closeFolderView(){
+  _currentFolder=null;
+  renderNotes();
+}
+
+function toggleNoteForm(){
+  var b=document.getElementById('note-form-body');
+  var t=document.getElementById('note-form-toggle');
+  if(!b) return;
+  var isOpen=b.style.display!=='none';
+  b.style.display=isOpen?'none':'block';
+  if(t) t.textContent=isOpen?'+':'\u2212';
+  if(!isOpen){
+    setTimeout(function(){var i=document.getElementById('note-title-input');if(i)i.focus();},150);
+  }
 }
 
 function renderNotes(){
-  const el=document.getElementById('notes-list');
-  if(!state.notes.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📝</div>Nenhuma nota</div>'; return; }
-  el.innerHTML=state.notes.map(n=>{ const preview=n.body?n.body.slice(0,80)+(n.body.length>80?'…':''):''; return `<div class="note-item" onclick="openNote('${n.id}')"><div class="note-head"><div class="note-title-disp">${n.title}</div><span class="note-del" onclick="event.stopPropagation();delNote('${n.id}')">✕</span></div><div class="note-body-disp">${preview}</div><div class="note-date">${new Date(n.date).toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})}</div></div>`; }).join('');
+  _ensureFolders();
+  var grid=document.getElementById('notes-folders-grid');
+  var folderView=document.getElementById('notes-folder-view');
+  var breadcrumb=document.getElementById('notes-breadcrumb');
+  var newFolderBtn=document.getElementById('new-folder-btn');
+  if(!grid) return;
+
+  if(_currentFolder){
+    // Inside a folder
+    var folder=state.noteFolders.find(function(f){return f.id===_currentFolder;});
+    if(!folder){ _currentFolder=null; renderNotes(); return; }
+    grid.style.display='none';
+    if(folderView) folderView.style.display='block';
+    if(breadcrumb) breadcrumb.textContent=folder.name;
+    if(newFolderBtn) newFolderBtn.style.display='none';
+
+    var el=document.getElementById('notes-list');
+    if(!el) return;
+    var notes=(state.notes||[]).filter(function(n){return n.folderId===_currentFolder;});
+    if(!notes.length){
+      el.innerHTML='<div class="empty"><div class="empty-icon">\u{1F4DD}</div>Nenhuma nota nesta pasta</div>';
+      return;
+    }
+    el.innerHTML=notes.map(function(n){
+      var preview=n.body?n.body.slice(0,80)+(n.body.length>80?'\u2026':''):'';
+      return '<div class="note-item" data-nid="'+n.id+'" onclick="openNote(this.dataset.nid)">'
+        +'<div class="note-head">'
+        +'<div class="note-title-disp">'+n.title+'</div>'
+        +'<span class="note-del" data-nid="'+n.id+'" onclick="event.stopPropagation();delNote(this.dataset.nid)">\u2715</span>'
+        +'</div>'
+        +(preview?'<div class="note-preview">'+preview+'</div>':'')
+        +'<div class="note-date">'+new Date(n.date).toLocaleDateString('pt-BR')+'</div>'
+        +'</div>';
+    }).join('');
+  } else {
+    // Folders grid view
+    grid.style.display='grid';
+    if(folderView) folderView.style.display='none';
+    if(breadcrumb) breadcrumb.textContent='Pastas';
+    if(newFolderBtn) newFolderBtn.style.display='block';
+
+    grid.innerHTML=state.noteFolders.map(function(f){
+      var count=(state.notes||[]).filter(function(n){return n.folderId===f.id;}).length;
+      var delBtn=f.id!=='default'
+        ?'<span style="position:absolute;top:8px;right:10px;cursor:pointer;color:var(--ink3);font-size:14px" data-fid="'+f.id+'" onclick="event.stopPropagation();delFolder(this.dataset.fid)">\u2715</span>'
+        :'';
+      return '<div data-fid="'+f.id+'" onclick="openFolder(this.dataset.fid)" style="position:relative;background:var(--white);border:1.5px solid var(--border);border-radius:16px;padding:16px;cursor:pointer;transition:transform .15s" ontouchstart="this.style.transform=\'scale(.97)\'" ontouchend="this.style.transform=\'\'">'
+        +delBtn
+        +'<div style="width:42px;height:42px;border-radius:12px;background:'+f.color+'22;display:flex;align-items:center;justify-content:center;margin-bottom:10px">'
+        +'<svg width="22" height="22" viewBox="0 0 24 24" fill="'+f.color+'"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>'
+        +'</div>'
+        +'<div style="font-size:13px;font-weight:800;color:var(--ink)">'+f.name+'</div>'
+        +'<div style="font-size:10px;font-weight:600;color:var(--ink3);margin-top:2px">'+count+' nota'+(count!==1?'s':'')+'</div>'
+        +'</div>';
+    }).join('');
+  }
 }
 
 function openNote(id){ const n=state.notes.find(n=>n.id===id); if(!n) return; editingNoteId=id; document.getElementById('note-editor-title-field').value=n.title; document.getElementById('note-editor-body-field').value=n.body; document.getElementById('note-editor').classList.add('show'); }
