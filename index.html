@@ -722,7 +722,7 @@ input[list]{background-image:none}
       <input id="tx-desc" type="text" placeholder="Ex: Supermercado, Salário...">
     </div>
     <div class="input-row">
-      <div><label>Valor R$</label><input id="tx-value" type="number" placeholder="0,00" step="0.01" min="0"></div>
+      <div><label>Valor R$</label><input id="tx-value" type="number" oninput="updateParcelaPreview()" placeholder="0,00" step="0.01" min="0"></div>
       <div><label>Tipo</label><select id="tx-type" onchange="populateCatSelect('tx-cat',this.value)"><option value="out">Saída (−)</option><option value="in">Entrada (+)</option></select></div>
     </div>
     <div class="form-group">
@@ -741,10 +741,31 @@ input[list]{background-image:none}
         </select>
       </div>
     </div>
+    <div class="input-row">
+      <div><label>Parcelado?</label>
+        <select id="tx-parcelas" onchange="updateParcelaPreview()">
+          <option value="1">À vista</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+          <option value="5">5x</option>
+          <option value="6">6x</option>
+          <option value="10">10x</option>
+          <option value="12">12x</option>
+          <option value="18">18x</option>
+          <option value="24">24x</option>
+        </select>
+      </div>
+      <div id="tx-parcela-info" style="display:flex;align-items:flex-end;padding-bottom:10px;font-size:11px;font-weight:700;color:var(--sky)"></div>
+    </div>
     <div id="tx-recur-preview" style="display:none;background:#eaf3ff;border-radius:10px;padding:10px 12px;margin-bottom:11px;font-size:12px;font-weight:600;color:var(--sky)"></div>
     <button class="btn" onclick="addTransaction()">Registrar</button>
   </div>
   <div class="section-title">Extrato</div>
+  <div style="position:relative;margin-bottom:10px">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--ink3)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+    <input id="tx-search" type="text" placeholder="Buscar transação..." oninput="renderFinance()" style="width:100%;padding:10px 12px 10px 36px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--white);font-size:13px;color:var(--ink)">
+  </div>
   <div class="card" id="tx-list"></div>
 
 
@@ -1949,6 +1970,18 @@ function calcBalance(month){
   return state.transactions.filter(t=>!month||t.date.startsWith(month)).reduce((s,t)=>s+(t.type==='in'?t.val:-t.val),0);
 }
 
+function updateParcelaPreview(){
+  var n=parseInt(document.getElementById('tx-parcelas').value)||1;
+  var val=parseFloat(document.getElementById('tx-value').value)||0;
+  var info=document.getElementById('tx-parcela-info');
+  if(!info) return;
+  if(n>1&&val>0){
+    info.textContent=n+'x de R$ '+fm(val/n);
+  } else {
+    info.textContent='';
+  }
+}
+
 function addTransaction(){
   const desc=document.getElementById('tx-desc').value.trim();
   const val=parseFloat(document.getElementById('tx-value').value);
@@ -1956,19 +1989,52 @@ function addTransaction(){
   const cat=document.getElementById('tx-cat').value;
   const date=document.getElementById('tx-date').value||today();
   const recur=document.getElementById('tx-recur').value==='1';
+  const parcelas=parseInt((document.getElementById('tx-parcelas')||{value:1}).value)||1;
   if(!desc||isNaN(val)||val<=0){ toast('Preencha descrição e valor'); return; }
-  state.transactions.unshift({id:uid(),desc,val,type,cat,date,recur});
+
+  if(parcelas>1){
+    // Parcelamento: cria N transações, uma por mês
+    var valParcela=Math.round((val/parcelas)*100)/100;
+    var baseDate=new Date(date+'T12:00:00');
+    var groupId=uid();
+    for(var i=0;i<parcelas;i++){
+      var d=new Date(baseDate);
+      d.setMonth(d.getMonth()+i);
+      var dStr=d.toISOString().slice(0,10);
+      state.transactions.unshift({
+        id:uid(),
+        desc:desc+' ('+(i+1)+'/'+parcelas+')',
+        val:valParcela,
+        type:type,cat:cat,date:dStr,recur:false,
+        parcelaGroup:groupId,parcelaNum:i+1,parcelaTotal:parcelas
+      });
+    }
+    toast('\u2713 '+parcelas+'x de R$ '+fm(valParcela)+' registradas!');
+  } else {
+    state.transactions.unshift({id:uid(),desc,val,type,cat,date,recur});
+    toast('\u2713 Registrado!');
+  }
+
   save(); renderFinance(); updateHome();
   document.getElementById('tx-desc').value='';
   document.getElementById('tx-value').value='';
-  toast('✓ Registrado!');
+  var ps=document.getElementById('tx-parcelas'); if(ps) ps.value='1';
+  var pi=document.getElementById('tx-parcela-info'); if(pi) pi.textContent='';
 }
 
 function delTx(id){ state.transactions=state.transactions.filter(t=>t.id!==id); save(); renderFinance(); updateHome(); toast('Removido'); }
 
 function renderFinance(){
   const month=state.viewMonth;
-  const txMonth=state.transactions.filter(t=>t.date.startsWith(month));
+  var searchTerm=((document.getElementById('tx-search')||{value:''}).value||'').toLowerCase().trim();
+  let txMonth=state.transactions.filter(t=>t.date.startsWith(month));
+  if(searchTerm){
+    txMonth=txMonth.filter(function(t){
+      return (t.desc||'').toLowerCase().includes(searchTerm)
+        || (t.cat||'').toLowerCase().includes(searchTerm)
+        || String(t.val).includes(searchTerm);
+    });
+  }
   const bal=calcBalance(month);
   const hw=document.getElementById('balance-hero-wrap');
   hw.innerHTML=`<div class="balance-hero ${bal<0?'neg':'pos'}" style="margin-bottom:14px"><div class="balance-label">Saldo — ${document.getElementById('month-label').textContent||month}</div><div class="balance-value">${bal<0?'−':''}R$ ${fm(Math.abs(bal))}</div><div class="balance-sub">${txMonth.length} movimentações</div></div>`;
