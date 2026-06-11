@@ -628,9 +628,7 @@ input[list]{background-image:none}
   <button class="tab" onclick="showScreen('finance',this)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg> Finanças
   </button>
-  <button class="tab" onclick="showScreen('bills',this)">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg> Contas
-  </button>
+
   <button class="tab" onclick="showScreen('goals',this)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm0-12.5c-2.49 0-4.5 2.01-4.5 4.5S9.51 16.5 12 16.5s4.5-2.01 4.5-4.5S14.49 7.5 12 7.5zm0 5.5c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg> Metas
   </button>
@@ -750,6 +748,101 @@ input[list]{background-image:none}
   </div>
   <div class="section-title">Extrato</div>
   <div class="card" id="tx-list"></div>
+
+
+  <!-- CONTAS (integrado em Finanças) -->
+  <div id="finance-contas-section" style="margin-top:6px">
+    <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Contas a Pagar</span>
+    </div>
+
+  <!-- RESUMO TOPO -->
+  <div id="bills-summary-wrap"></div>
+
+  <!-- TABS -->
+  <div class="inv-tabs">
+    <div class="inv-tab active" id="btab-avulsa"   onclick="switchBillTab('avulsa')">Avulsas</div>
+    <div class="inv-tab"        id="btab-fixa"     onclick="switchBillTab('fixa')">Fixas/Recorr.</div>
+    <div class="inv-tab"        id="btab-financ"   onclick="switchBillTab('financ')">Financ./Empréstimos</div>
+  </div>
+
+  <!-- FORM AVULSA -->
+  <div id="bform-avulsa" class="card">
+    <div class="card-title blue">Nova Conta Avulsa</div>
+    <div class="form-group"><label>Nome</label><input id="ba-name" type="text" placeholder="Ex: Conta de luz de março..."></div>
+    <div class="input-row">
+      <div><label>Valor R$</label><input id="ba-value" type="number" placeholder="0,00" step="0.01" min="0"></div>
+      <div><label>Vencimento</label><input id="ba-due" type="date"></div>
+    </div>
+    <div class="input-row">
+      <div><label>Categoria</label><select id="ba-cat"><option value="moradia">🏠 Moradia</option><option value="energia">💡 Energia</option><option value="agua">💧 Água</option><option value="internet">📶 Internet</option><option value="saude">💊 Saúde</option><option value="educacao">📚 Educação</option><option value="servicos">📱 Assinaturas</option><option value="transporte">🚗 Transporte</option><option value="outros">◈ Outros</option></select></div>
+      <div><label>Status</label><select id="ba-status"><option value="pendente">🟡 Pendente</option><option value="atrasada">🔴 Atrasada</option><option value="negociacao">🔵 Em Negociação</option></select></div>
+    </div>
+    <button class="btn" onclick="addBillAvulsa()">Adicionar Conta</button>
+  </div>
+
+  <!-- FORM FIXA/RECORRENTE -->
+  <div id="bform-fixa" class="card" style="display:none">
+    <div class="card-title blue">Nova Conta Fixa / Recorrente</div>
+    <div class="form-group"><label>Nome</label><input id="bf-name" type="text" placeholder="Ex: Aluguel, Netflix, Academia..."></div>
+    <div class="input-row">
+      <div><label>Valor R$</label><input id="bf-value" type="number" placeholder="0,00" step="0.01" min="0"></div>
+      <div><label>Dia Vencimento</label><input id="bf-day" type="number" placeholder="Ex: 10" min="1" max="31"></div>
+    </div>
+    <div class="input-row">
+      <div><label>Categoria</label><select id="bf-cat"><option value="moradia">🏠 Moradia</option><option value="energia">💡 Energia</option><option value="agua">💧 Água</option><option value="internet">📶 Internet</option><option value="saude">💊 Saúde</option><option value="educacao">📚 Educação</option><option value="servicos">📱 Assinaturas</option><option value="transporte">🚗 Transporte</option><option value="outros">◈ Outros</option></select></div>
+      <div><label>Tipo</label><select id="bf-recur"><option value="mensal">Mensal</option><option value="anual">Anual</option><option value="trimestral">Trimestral</option><option value="indeterminado">Indeterminado</option></select></div>
+    </div>
+    <button class="btn" onclick="addBillFixa()">Adicionar Conta Fixa</button>
+  </div>
+
+  <!-- FORM FINANCIAMENTO/EMPRÉSTIMO -->
+  <div id="bform-financ" class="card" style="display:none">
+    <div class="card-title blue">Novo Financiamento / Empréstimo</div>
+    <div class="input-row">
+      <div style="flex:0 0 72px">
+        <label>Ícone</label>
+        <button id="bf2-icon-btn" onclick="openEmojiPicker('bf2-icon')" style="width:100%;height:44px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--sky-xl);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center">🏠</button>
+        <input type="hidden" id="bf2-icon" value="🏠">
+      </div>
+      <div><label>Nome / Descrição</label><input id="bf2-name" type="text" placeholder="Ex: Financiamento Ap. 202..."></div>
+    </div>
+    <div class="form-group"><label>Tipo</label><select id="bf2-type">
+      <option value="imovel">🏠 Financiamento Imóvel</option>
+      <option value="veiculo">🚗 Financiamento Veículo</option>
+      <option value="pessoal">💳 Empréstimo Pessoal</option>
+      <option value="consignado">📋 Crédito Consignado</option>
+      <option value="estudantil">📚 Financiamento Estudantil (FIES)</option>
+      <option value="empresa">🏢 Empréstimo Empresarial</option>
+      <option value="outro">◈ Outro</option>
+    </select></div>
+    <div class="input-row">
+      <div><label>Valor Total R$</label><input id="bf2-total" type="number" placeholder="200000,00" step="0.01" min="0"></div>
+      <div><label>Valor Pago R$</label><input id="bf2-paid" type="number" placeholder="50000,00" step="0.01" min="0" value="0"></div>
+    </div>
+    <div class="input-row">
+      <div><label>Parcela Mensal R$</label><input id="bf2-parcel" type="number" placeholder="1500,00" step="0.01" min="0"></div>
+      <div><label>Parcelas Restantes</label><input id="bf2-remaining" type="number" placeholder="120" min="0"></div>
+    </div>
+    <div class="input-row">
+      <div><label>Taxa Juros % a.a.</label><input id="bf2-rate" type="number" placeholder="9.5" step="0.01"></div>
+      <div><label>Próx. Vencimento</label><input id="bf2-due" type="date"></div>
+    </div>
+    <div class="form-group"><label>Status</label><select id="bf2-status">
+      <option value="emdia">✅ Em Dia</option>
+      <option value="atrasado">🔴 Atrasado</option>
+      <option value="negociacao">🔵 Em Negociação</option>
+      <option value="resolver">⚠️ Falta Resolver</option>
+      <option value="renegociado">🟣 Renegociado</option>
+      <option value="quitado">🏆 Quitado</option>
+    </select></div>
+    <div class="form-group"><label>Observação</label><textarea id="bf2-obs" rows="2" placeholder="Detalhes, acordo, contato do credor..."></textarea></div>
+    <button class="btn" onclick="addBillFinanc()">Adicionar Financiamento</button>
+  </div>
+
+  <div class="section-title" id="bills-list-title">Contas Avulsas Pendentes</div>
+  <div id="bills-list"></div>
+  </div>
 </div>
 
 <!-- INVESTIMENTOS -->
@@ -929,98 +1022,6 @@ input[list]{background-image:none}
 
   <!-- LIST VIEW -->
   <div class="card" id="events-list"><div class="empty"><div class="empty-icon">📅</div>Nenhum evento</div></div>
-</div>
-
-<!-- CONTAS -->
-<div id="screen-bills" class="screen">
-
-  <!-- RESUMO TOPO -->
-  <div id="bills-summary-wrap"></div>
-
-  <!-- TABS -->
-  <div class="inv-tabs">
-    <div class="inv-tab active" id="btab-avulsa"   onclick="switchBillTab('avulsa')">Avulsas</div>
-    <div class="inv-tab"        id="btab-fixa"     onclick="switchBillTab('fixa')">Fixas/Recorr.</div>
-    <div class="inv-tab"        id="btab-financ"   onclick="switchBillTab('financ')">Financ./Empréstimos</div>
-  </div>
-
-  <!-- FORM AVULSA -->
-  <div id="bform-avulsa" class="card">
-    <div class="card-title blue">Nova Conta Avulsa</div>
-    <div class="form-group"><label>Nome</label><input id="ba-name" type="text" placeholder="Ex: Conta de luz de março..."></div>
-    <div class="input-row">
-      <div><label>Valor R$</label><input id="ba-value" type="number" placeholder="0,00" step="0.01" min="0"></div>
-      <div><label>Vencimento</label><input id="ba-due" type="date"></div>
-    </div>
-    <div class="input-row">
-      <div><label>Categoria</label><select id="ba-cat"><option value="moradia">🏠 Moradia</option><option value="energia">💡 Energia</option><option value="agua">💧 Água</option><option value="internet">📶 Internet</option><option value="saude">💊 Saúde</option><option value="educacao">📚 Educação</option><option value="servicos">📱 Assinaturas</option><option value="transporte">🚗 Transporte</option><option value="outros">◈ Outros</option></select></div>
-      <div><label>Status</label><select id="ba-status"><option value="pendente">🟡 Pendente</option><option value="atrasada">🔴 Atrasada</option><option value="negociacao">🔵 Em Negociação</option></select></div>
-    </div>
-    <button class="btn" onclick="addBillAvulsa()">Adicionar Conta</button>
-  </div>
-
-  <!-- FORM FIXA/RECORRENTE -->
-  <div id="bform-fixa" class="card" style="display:none">
-    <div class="card-title blue">Nova Conta Fixa / Recorrente</div>
-    <div class="form-group"><label>Nome</label><input id="bf-name" type="text" placeholder="Ex: Aluguel, Netflix, Academia..."></div>
-    <div class="input-row">
-      <div><label>Valor R$</label><input id="bf-value" type="number" placeholder="0,00" step="0.01" min="0"></div>
-      <div><label>Dia Vencimento</label><input id="bf-day" type="number" placeholder="Ex: 10" min="1" max="31"></div>
-    </div>
-    <div class="input-row">
-      <div><label>Categoria</label><select id="bf-cat"><option value="moradia">🏠 Moradia</option><option value="energia">💡 Energia</option><option value="agua">💧 Água</option><option value="internet">📶 Internet</option><option value="saude">💊 Saúde</option><option value="educacao">📚 Educação</option><option value="servicos">📱 Assinaturas</option><option value="transporte">🚗 Transporte</option><option value="outros">◈ Outros</option></select></div>
-      <div><label>Tipo</label><select id="bf-recur"><option value="mensal">Mensal</option><option value="anual">Anual</option><option value="trimestral">Trimestral</option><option value="indeterminado">Indeterminado</option></select></div>
-    </div>
-    <button class="btn" onclick="addBillFixa()">Adicionar Conta Fixa</button>
-  </div>
-
-  <!-- FORM FINANCIAMENTO/EMPRÉSTIMO -->
-  <div id="bform-financ" class="card" style="display:none">
-    <div class="card-title blue">Novo Financiamento / Empréstimo</div>
-    <div class="input-row">
-      <div style="flex:0 0 72px">
-        <label>Ícone</label>
-        <button id="bf2-icon-btn" onclick="openEmojiPicker('bf2-icon')" style="width:100%;height:44px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--sky-xl);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center">🏠</button>
-        <input type="hidden" id="bf2-icon" value="🏠">
-      </div>
-      <div><label>Nome / Descrição</label><input id="bf2-name" type="text" placeholder="Ex: Financiamento Ap. 202..."></div>
-    </div>
-    <div class="form-group"><label>Tipo</label><select id="bf2-type">
-      <option value="imovel">🏠 Financiamento Imóvel</option>
-      <option value="veiculo">🚗 Financiamento Veículo</option>
-      <option value="pessoal">💳 Empréstimo Pessoal</option>
-      <option value="consignado">📋 Crédito Consignado</option>
-      <option value="estudantil">📚 Financiamento Estudantil (FIES)</option>
-      <option value="empresa">🏢 Empréstimo Empresarial</option>
-      <option value="outro">◈ Outro</option>
-    </select></div>
-    <div class="input-row">
-      <div><label>Valor Total R$</label><input id="bf2-total" type="number" placeholder="200000,00" step="0.01" min="0"></div>
-      <div><label>Valor Pago R$</label><input id="bf2-paid" type="number" placeholder="50000,00" step="0.01" min="0" value="0"></div>
-    </div>
-    <div class="input-row">
-      <div><label>Parcela Mensal R$</label><input id="bf2-parcel" type="number" placeholder="1500,00" step="0.01" min="0"></div>
-      <div><label>Parcelas Restantes</label><input id="bf2-remaining" type="number" placeholder="120" min="0"></div>
-    </div>
-    <div class="input-row">
-      <div><label>Taxa Juros % a.a.</label><input id="bf2-rate" type="number" placeholder="9.5" step="0.01"></div>
-      <div><label>Próx. Vencimento</label><input id="bf2-due" type="date"></div>
-    </div>
-    <div class="form-group"><label>Status</label><select id="bf2-status">
-      <option value="emdia">✅ Em Dia</option>
-      <option value="atrasado">🔴 Atrasado</option>
-      <option value="negociacao">🔵 Em Negociação</option>
-      <option value="resolver">⚠️ Falta Resolver</option>
-      <option value="renegociado">🟣 Renegociado</option>
-      <option value="quitado">🏆 Quitado</option>
-    </select></div>
-    <div class="form-group"><label>Observação</label><textarea id="bf2-obs" rows="2" placeholder="Detalhes, acordo, contato do credor..."></textarea></div>
-    <button class="btn" onclick="addBillFinanc()">Adicionar Financiamento</button>
-  </div>
-
-  <div class="section-title" id="bills-list-title">Contas Avulsas Pendentes</div>
-  <div id="bills-list"></div>
-
 </div>
 
 <!-- METAS -->
