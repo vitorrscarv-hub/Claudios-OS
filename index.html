@@ -689,7 +689,7 @@ input[list]{background-image:none}
 
 <!-- FINANÇAS -->
 <div id="screen-finance" class="screen">
-  <div class="month-nav">
+<div class="month-nav">
     <button class="month-nav-btn" onclick="changeMonth(-1)">‹</button>
     <div class="month-label" id="month-label"></div>
     <button class="month-nav-btn" onclick="changeMonth(1)">›</button>
@@ -705,14 +705,19 @@ input[list]{background-image:none}
       <div class="fin-pill-label">Saídas ›</div>
     </div>
   </div>
-  <!-- Gráfico Pizza -->
-  <div class="card">
-    <div class="card-title blue">Distribuição de Gastos</div>
-    <div id="pie-container"></div>
-    <div class="section-title" style="margin-top:14px">Por Categoria</div>
-    <div id="cat-chart"></div>
+  
+  <!-- SUB-ABAS FINANÇAS -->
+  <div class="inv-tabs" style="margin-bottom:14px">
+    <div class="inv-tab active" id="fintab-extrato" onclick="switchFinanceTab('extrato')">Extrato</div>
+    <div class="inv-tab" id="fintab-analise" onclick="switchFinanceTab('analise')">Análise</div>
+    <div class="inv-tab" id="fintab-contas" onclick="switchFinanceTab('contas')">Contas</div>
   </div>
-  <div class="card">
+
+  <!-- TAB EXTRATO -->
+  <div id="finpanel-extrato">
+    <button class="btn" onclick="toggleTxForm()" id="tx-form-toggle-btn" style="background:linear-gradient(135deg,var(--sky),var(--sky2));margin-bottom:12px">+ Nova Movimentação</button>
+    <div id="tx-form-wrap" style="display:none">
+<div class="card">
     <div class="card-title blue" style="display:flex;justify-content:space-between;align-items:center">
       Nova Movimentação
       <button class="btn btn-ghost" style="padding:5px 12px;font-size:10px;width:auto" onclick="openExport()">↓ Exportar</button>
@@ -761,7 +766,9 @@ input[list]{background-image:none}
     <div id="tx-recur-preview" style="display:none;background:#eaf3ff;border-radius:10px;padding:10px 12px;margin-bottom:11px;font-size:12px;font-weight:600;color:var(--sky)"></div>
     <button class="btn" onclick="addTransaction()">Registrar</button>
   </div>
-  <div class="section-title">Extrato</div>
+  
+    </div>
+<div class="section-title">Extrato</div>
   <div style="position:relative;margin-bottom:10px">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--ink3)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%)"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
     <input id="tx-search" type="text" placeholder="Buscar transação..." oninput="renderFinance()" style="width:100%;padding:10px 12px 10px 36px;border:1.5px solid var(--border);border-radius:var(--r);background:var(--white);font-size:13px;color:var(--ink)">
@@ -769,7 +776,24 @@ input[list]{background-image:none}
   <div class="card" id="tx-list"></div>
 
 
-  <!-- CONTAS (integrado em Finanças) -->
+  
+  </div>
+
+  <!-- TAB ANÁLISE -->
+  <div id="finpanel-analise" style="display:none">
+<!-- Gráfico Pizza -->
+  <div class="card">
+    <div class="card-title blue">Distribuição de Gastos</div>
+    <div id="pie-container"></div>
+    <div class="section-title" style="margin-top:14px">Por Categoria</div>
+    <div id="cat-chart"></div>
+  </div>
+  
+  </div>
+
+  <!-- TAB CONTAS -->
+  <div id="finpanel-contas" style="display:none">
+<!-- CONTAS (integrado em Finanças) -->
   <div id="finance-contas-section" style="margin-top:6px">
     <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
       <span>Contas a Pagar</span>
@@ -861,6 +885,7 @@ input[list]{background-image:none}
 
   <div class="section-title" id="bills-list-title">Contas Avulsas Pendentes</div>
   <div id="bills-list"></div>
+  </div>
   </div>
 </div>
 
@@ -2020,6 +2045,11 @@ function addTransaction(){
   document.getElementById('tx-value').value='';
   var ps=document.getElementById('tx-parcelas'); if(ps) ps.value='1';
   var pi=document.getElementById('tx-parcela-info'); if(pi) pi.textContent='';
+  // Close form after adding
+  var fw=document.getElementById('tx-form-wrap');
+  var fb=document.getElementById('tx-form-toggle-btn');
+  if(fw) fw.style.display='none';
+  if(fb) fb.textContent='+ Nova Movimenta\u00e7\u00e3o';
 }
 
 function delTx(id){ state.transactions=state.transactions.filter(t=>t.id!==id); save(); renderFinance(); updateHome(); toast('Removido'); }
@@ -2950,6 +2980,34 @@ function switchReportTab(tab){
   });
   if(tab==='dashboard') renderDashboard();
 }
+function switchFinanceTab(tab){
+  var panels={extrato:'finpanel-extrato',analise:'finpanel-analise',contas:'finpanel-contas'};
+  var btns={extrato:'fintab-extrato',analise:'fintab-analise',contas:'fintab-contas'};
+  Object.keys(panels).forEach(function(k){
+    var p=document.getElementById(panels[k]);
+    var b=document.getElementById(btns[k]);
+    if(p) p.style.display=k===tab?'block':'none';
+    if(b){ if(k===tab){b.classList.add('active');}else{b.classList.remove('active');} }
+  });
+  if(tab==='contas'){ try{ renderBills(); }catch(e){} }
+  if(tab==='analise'){ try{ renderFinance(); }catch(e){} }
+}
+
+function toggleTxForm(){
+  var w=document.getElementById('tx-form-wrap');
+  var b=document.getElementById('tx-form-toggle-btn');
+  if(!w) return;
+  var isOpen=w.style.display!=='none';
+  w.style.display=isOpen?'none':'block';
+  if(b) b.textContent=isOpen?'+ Nova Movimenta\u00e7\u00e3o':'\u2212 Fechar formul\u00e1rio';
+  if(!isOpen){
+    setTimeout(function(){
+      var d=document.getElementById('tx-desc');
+      if(d) d.focus();
+    },150);
+  }
+}
+
 
 
 // ── ADD AVULSA ──
