@@ -4647,29 +4647,29 @@ function loginEmail(){
 }
 
 function loginGoogle(){
-  var provider = new firebase.auth.GoogleAuthProvider();
-  provider.setCustomParameters({prompt:'select_account'});
-  // Always use redirect on mobile (popup unreliable in Safari/WebView)
-  var isMobile = /iPhone|iPad|iPod|Android/.test(navigator.userAgent);
-  // Set persistence first, then redirect
-  // Show loading indicator
   var gl=document.getElementById('google-loading');
   if(gl) gl.style.display='flex';
-  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function(){
-    if(isMobile){
-      return auth.signInWithRedirect(provider);
-    } else {
-      return auth.signInWithPopup(provider).catch(function(e){
-        if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'){
-          return auth.signInWithRedirect(provider);
-        }
-        throw e;
-      });
-    }
-  }).catch(function(e){
-    var errEl=document.getElementById('login-error');
-    if(errEl) errEl.textContent=_firebaseAuthError(e.code);
-  });
+  var errEl=document.getElementById('login-error');
+  if(errEl) errEl.textContent='';
+  var provider = new firebase.auth.GoogleAuthProvider();
+  provider.addScope('email');
+  provider.addScope('profile');
+  provider.setCustomParameters({prompt:'select_account'});
+  auth.signInWithPopup(provider)
+    .then(function(){
+      if(gl) gl.style.display='none';
+    })
+    .catch(function(e){
+      if(gl) gl.style.display='none';
+      if(e.code==='auth/popup-blocked'){
+        toast('Popup bloqueado. Tentando redirect...');
+        auth.signInWithRedirect(provider);
+        return;
+      }
+      if(e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request') return;
+      if(errEl) errEl.textContent=_firebaseAuthError(e.code);
+      console.warn('Google login:', e.code, e.message);
+    });
 }
 
 function loginApple(){
